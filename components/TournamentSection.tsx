@@ -17,7 +17,7 @@ export default function TournamentSection({ tournaments, onRefresh, players, onP
           <h2 className="tech-font text-3xl font-black text-white uppercase italic tracking-tighter">
             Torneios Ativos
           </h2>
-          <p className="text-gray-500 tech-font text-[10px] uppercase mt-1">Sessões de combate em tempo real</p>
+          <p className="text-gray-500 tech-font text-[10px] uppercase mt-1">Sessões de torneios em tempo real</p>
         </div>
         <button 
           onClick={onRefresh}
@@ -30,7 +30,7 @@ export default function TournamentSection({ tournaments, onRefresh, players, onP
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {tournaments.length > 0 ? ( tournaments.map(t => (
-          <div key={t.id} className="bg-[#0c0c0c] border border-red-900/20 rounded-2xl p-6 relative overflow-hidden group hover:border-red-500/40 transition-all">
+          <div key={t.id} className="fade-in-section bg-[#0c0c0c] border border-red-900/20 rounded-2xl p-6 relative overflow-hidden group hover:border-red-500/40 transition-all">
             <div className="absolute top-0 right-0 p-4 bg-red-600/10 border-b border-l border-red-900/20 rounded-bl-xl">
                <span className="tech-font text-[10px] text-red-500 font-bold uppercase">{t.time_control}</span>
             </div>

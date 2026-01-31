@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Player, GameMode, Match, Achievement } from '../types.ts';
 import { GoogleGenAI } from "@google/genai";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const API_URL = 'http://localhost:5000/api';
 
@@ -12,14 +13,16 @@ interface PlayerModalProps {
 }
 
 export default function PlayerModal({ player, activeMode, onClose }: PlayerModalProps) {
+  const [currentMode, setCurrentMode] = useState<GameMode>(activeMode);
   const [history, setHistory] = useState<Match[]>([]);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [fullStats, setFullStats] = useState(player.estatisticas);
   const [aiReport, setAiReport] = useState<string | null>(null);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isClosing, setIsClosing] = useState(false);
 
-  const stats = player.estatisticas[activeMode] || { rating: 0, vitorias: 0, derrotas: 0, empates: 0, partidas_jogadas: 0 };
+  const stats = fullStats[currentMode] || { rating: 0, vitorias: 0, derrotas: 0, empates: 0, partidas_jogadas: 0 };
 
   const handleClose = () => {
     setIsClosing(true);
@@ -34,33 +37,51 @@ export default function PlayerModal({ player, activeMode, onClose }: PlayerModal
     };
   }, []);
 
+  // Fetch Global Data (Stats & Achievements)
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoadingData(true);
+    const fetchGlobalData = async () => {
       try {
-        const [histRes, achRes] = await Promise.all([
-          fetch(`${API_URL}/historico/${player.id_discord}?modo=${activeMode}`),
-          fetch(`${API_URL}/achievements/${player.id_discord}`)
+        const [achRes, detailsRes] = await Promise.all([
+          fetch(`${API_URL}/achievements/${player.id_discord}`),
+          fetch(`${API_URL}/jogador/${player.id_discord}`)
         ]);
         
-        if (!histRes.ok || !achRes.ok) throw new Error();
-
-        const [histData, achData] = await Promise.all([histRes.json(), achRes.json()]);
-        console.log('Histórico recebido:', histData);
-        console.log('Conquistas recebidas:', achData);
-        setHistory(histData.partidas || histData || []);
-        setAchievements(achData.achievements || achData || []);
+        if (achRes.ok) {
+            const achData = await achRes.json();
+            setAchievements(achData.achievements || achData || []);
+        }
+        
+        if (detailsRes.ok) {
+            const detailsData = await detailsRes.json();
+            if (detailsData.estatisticas) {
+                setFullStats(detailsData.estatisticas);
+            }
+        }
       } catch (e) {
-        console.error("Erro ao buscar dados:", e);
-        // Não carregar dados fictícios — mostrar listas vazias
+        console.error("Erro ao buscar dados globais:", e);
+      }
+    };
+    fetchGlobalData();
+  }, [player.id_discord]);
+
+  // Fetch History on Mode Change
+  useEffect(() => {
+    const fetchHistory = async () => {
+      setIsLoadingData(true);
+      try {
+        const histRes = await fetch(`${API_URL}/historico/${player.id_discord}?modo=${currentMode}`);
+        if (!histRes.ok) throw new Error();
+        const histData = await histRes.json();
+        setHistory(histData.partidas || histData || []);
+      } catch (e) {
+        console.error("Erro ao buscar histórico:", e);
         setHistory([]);
-        setAchievements([]);
       } finally {
         setIsLoadingData(false);
       }
     };
-    fetchData();
-  }, [player.id_discord, activeMode]);
+    fetchHistory();
+  }, [player.id_discord, currentMode]);
 
   const generateAiReport = async () => {
     setIsLoadingAi(true);
@@ -70,7 +91,7 @@ export default function PlayerModal({ player, activeMode, onClose }: PlayerModal
         model: 'gemini-3-flash-preview',
         contents: `Analise este jogador de Xadrez Legion e gere um relatório tático de olheiro agressivo:
         Nome: ${player.nome}
-        Modo: ${activeMode}
+        Modo: ${currentMode}
         Rating: ${stats.rating}
         Taxa de Vitória: ${stats.partidas_jogadas > 0 ? ((stats.vitorias/stats.partidas_jogadas)*100).toFixed(1) : 0}%
         Vitórias: ${stats.vitorias}, Empates: ${stats.empates}, Derrotas: ${stats.derrotas}
@@ -104,7 +125,7 @@ export default function PlayerModal({ player, activeMode, onClose }: PlayerModal
         </button>
 
         {/* Área de rolagem principal */}
-        <div className="overflow-y-auto custom-scrollbar flex-grow bg-grid">
+        <div className="overflow-y-auto custom-scrollbar flex-grow bg-grid scroll-smooth">
           
           {/* Header Decorativo que rola junto */}
           <div className="h-40 bg-gradient-to-b from-red-600/20 via-red-900/10 to-transparent relative w-full" />
@@ -136,6 +157,23 @@ export default function PlayerModal({ player, activeMode, onClose }: PlayerModal
               </div>
             </div>
 
+            {/* Mode Tabs */}
+            <div className="flex justify-center gap-2 mb-6">
+              {(['blitz', 'rapid', 'bullet', 'classic'] as GameMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setCurrentMode(mode)}
+                  className={`px-6 py-2 rounded-xl tech-font text-[10px] uppercase font-bold tracking-wider transition-all duration-300 ${
+                    currentMode === mode
+                      ? 'bg-red-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.4)] scale-105'
+                      : 'bg-[#111] text-gray-500 hover:text-gray-300 hover:bg-white/5 border border-white/5 hover:border-red-500/30'
+                  }`}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+
             {/* Grid de Stats Primários - Agora com 2 linhas */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                <StatCard label="Rating" value={stats.rating.toString()} color="text-white" />
@@ -145,6 +183,67 @@ export default function PlayerModal({ player, activeMode, onClose }: PlayerModal
                <StatCard label="Empates" value={stats.empates.toString()} color="text-yellow-500" />
                <StatCard label="Derrotas" value={stats.derrotas.toString()} color="text-red-600" />
             </div>
+
+            {/* Rating Evolution Chart */}
+            <div className="h-64 w-full bg-[#0c0c0c] border border-red-900/5 rounded-[1.5rem] p-4 relative overflow-hidden group hover:border-red-900/20 transition-all">
+                 <h3 className="absolute top-4 left-6 tech-font text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em] z-10">
+                    Rating Evolution
+                 </h3>
+                 <div className="w-full h-full pt-6">
+                  {history.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={[...history].reverse().map(m => ({
+                      date: new Date(m.data).toLocaleDateString(undefined, {month: 'short', day: 'numeric'}),
+                      rating: m.rating_depois,
+                      fullDate: new Date(m.data).toLocaleString()
+                    }))}>
+                      <defs>
+                        <linearGradient id="colorRating" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} opacity={0.3} />
+                      <XAxis 
+                        dataKey="date" 
+                        stroke="#444" 
+                        tick={{fontSize: 10, fill: '#666', fontFamily: 'monospace'}} 
+                        tickLine={false}
+                        axisLine={false}
+                        minTickGap={30}
+                      />
+                      <YAxis 
+                        stroke="#444" 
+                        domain={['auto', 'auto']} 
+                        tick={{fontSize: 10, fill: '#666', fontFamily: 'monospace'}} 
+                        tickLine={false}
+                        axisLine={false}
+                        width={30}
+                      />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#000', border: '1px solid #333', borderRadius: '8px' }}
+                        itemStyle={{ color: '#ef4444', fontFamily: 'monospace', fontSize: '12px' }}
+                        labelStyle={{ color: '#888', marginBottom: '4px', fontSize: '10px', fontFamily: 'monospace' }}
+                        formatter={(value: number) => [value, 'Rating']}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="rating" 
+                        stroke="#ef4444" 
+                        strokeWidth={2} 
+                        fillOpacity={1}
+                        fill="url(#colorRating)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center opacity-30">
+                        <span className="text-4xl mb-2 grayscale">📉</span>
+                        <span className="tech-font text-[10px] uppercase tracking-widest text-gray-500">Sem dados de histórico</span>
+                    </div>
+                  )}
+                 </div>
+              </div>
 
             {/* Achievements */}
             <section className="space-y-4">
@@ -169,7 +268,7 @@ export default function PlayerModal({ player, activeMode, onClose }: PlayerModal
             {/* History */}
             <section className="space-y-4">
               <h3 className="tech-font text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em] pl-2 border-l-2 border-red-900/30">
-                Mission History // {activeMode.toUpperCase()}
+                Mission History // {currentMode.toUpperCase()}
               </h3>
               <div className="space-y-3">
                 {isLoadingData ? (

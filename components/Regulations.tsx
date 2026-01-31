@@ -106,7 +106,7 @@ export default function Regulations() {
           {sections.map((section, idx) => (
             <div 
               key={idx}
-              className="bg-[#111] border border-red-900/20 rounded-2xl p-8 hover:border-red-900/40 transition-all hover:bg-[#1a1a1a]"
+              className="fade-in-section bg-[#111] border border-red-900/20 rounded-2xl p-8 hover:border-red-900/40 transition-all hover:bg-[#1a1a1a]"
             >
               <h2 className="tech-font text-lg font-bold text-red-500 uppercase tracking-wide mb-4">
                 {section.title}

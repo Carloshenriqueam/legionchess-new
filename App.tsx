@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Player, GameMode, ViewState, Tournament } from './types.ts';
+import { Player, GameMode, ViewState, Tournament, SearchPlayer } from './types.ts';
 import Header from './components/Header.tsx';
 import Hero from './components/Hero.tsx';
 import RankingTable from './components/RankingTable.tsx';
@@ -18,8 +18,10 @@ const App: React.FC = () => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchPlayer[]>([]);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [lastUpdate, setLastUpdate] = useState('');
   const [isDemoMode, setIsDemoMode] = useState(false);
 
@@ -71,6 +73,26 @@ const App: React.FC = () => {
     }
   };
 
+  // Busca Jogadores (Search) - Nova função para consultar o backend
+  const performSearch = async (query: string) => {
+    if (query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const response = await fetch(`${API_URL}/search?query=${encodeURIComponent(query)}`);
+      if (!response.ok) throw new Error('Search failed');
+      const data = await response.json();
+      setSearchResults(data);
+    } catch (error) {
+      console.error("Search error:", error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   // Busca Torneios do Backend com Fallback para Mock
   const fetchTournaments = async () => {
     try {
@@ -103,26 +125,88 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (view === 'rankings') {
-      fetchRankings(activeMode).then(() => fetchTournaments());
-    } else if (view === 'home') {
-      // Na home, buscar os rankings de blitz e os torneios
-      fetchRankings(activeMode).then(() => fetchTournaments());
-    } else {
-      fetchTournaments();
-    }
+      fetchRankings(activeMode);
+    } 
+    // fetch tournaments for all views
+    fetchTournaments();
   }, [view, activeMode]);
 
-  const filteredPlayers = players.filter(p => 
-    p.nome.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Observer para animação de entrada no scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            observer.unobserve(entry.target); // Animar apenas uma vez
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    const elements = document.querySelectorAll('.fade-in-section');
+    elements.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, [view, players, tournaments, activeMode]); // Reexecutar quando a view ou dados mudarem
+
+  // Efeito unificado para Busca: Troca de view e execução da pesquisa
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchQuery.length > 2) {
+        performSearch(searchQuery);
+      } else {
+        setSearchResults([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
+  const handleSelectSearchPlayer = async (player: SearchPlayer) => {
+    setSearchQuery('');
+    setSearchResults([]);
+    try {
+      const playerResponse = await fetch(`${API_URL}/jogador/${player.id_discord}`);
+      if (!playerResponse.ok) throw new Error('Failed to fetch player details');
+      const playerData = await playerResponse.json();
+      
+      const playerForModal: Player = {
+        id_discord: playerData.id_discord,
+        nome: playerData.nome,
+        avatar_url: playerData.avatar_url,
+        rank: 0, // Rank is not available from this endpoint, maybe get it from ranking list
+        estatisticas: playerData.estatisticas,
+      };
+      setSelectedPlayer(playerForModal);
+    } catch (error) {
+      console.error("Error fetching single player data:", error);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden bg-[#050505] bg-grid">
+      <style>{`
+        html { scroll-behavior: smooth; }
+        .fade-in-section {
+          opacity: 0;
+          transform: translateY(20px);
+          transition: opacity 0.6s ease-out, transform 0.6s ease-out, background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+          will-change: opacity, visibility;
+        }
+        .fade-in-section.is-visible {
+          opacity: 1;
+          transform: none;
+        }
+      `}</style>
       <Header 
         searchQuery={searchQuery} 
-        onSearch={setSearchQuery} 
+        onSearchChange={setSearchQuery}
         currentView={view}
         setView={setView}
+        searchResults={searchResults}
+        onSelectPlayer={handleSelectSearchPlayer}
       />
       
       <main className="flex-grow pt-28 pb-12 px-4 md:px-8">
@@ -179,24 +263,14 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              <div className="relative group">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="LOCALIZAR COMBATENTE..."
-                  className="w-full max-w-md bg-[#111] border border-red-900/30 rounded-full px-6 py-3 text-sm text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/50 transition-all tech-font"
-                />
-              </div>
-
-              {isLoading ? (
+              {isLoading && searchResults.length === 0 ? (
                 <div className="flex flex-col items-center py-20 gap-4">
                   <div className="w-12 h-12 border-4 border-red-600/20 border-t-red-600 rounded-full animate-spin"></div>
                   <span className="tech-font text-xs text-red-500 animate-pulse">Sincronizando com Nexus...</span>
                 </div>
               ) : (
                 <RankingTable 
-                  players={filteredPlayers} 
+                  players={players} 
                   mode={activeMode}
                   onPlayerClick={setSelectedPlayer} 
                 />
@@ -210,7 +284,7 @@ const App: React.FC = () => {
       <footer className="py-10 border-t border-red-900/10 text-center bg-black/60 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
           <p className="tech-font text-[10px] text-gray-500 tracking-[0.3em] uppercase">
-            &copy; 2026 Legion Chess • Protocolo de Combate Ativo
+            &copy; 2026 Legion Chess • todos os direitos reservados ©
           </p>
           <div className="flex gap-6">
             <a href="#" className="text-gray-600 hover:text-red-500 transition-colors tech-font text-[10px]">Discord</a>

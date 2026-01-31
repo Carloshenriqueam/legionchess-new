@@ -1,15 +1,16 @@
-
 import React, { useState, useEffect } from 'react';
-import { ViewState } from '../types.ts';
+import { ViewState, SearchPlayer } from '../types.ts';
 
 interface HeaderProps {
   searchQuery: string;
-  onSearch: (q: string) => void;
+  onSearchChange: (q: string) => void;
   currentView: ViewState;
   setView: (v: ViewState) => void;
+  searchResults?: SearchPlayer[];
+  onSelectPlayer?: (player: SearchPlayer) => void;
 }
 
-export default function Header({ searchQuery, onSearch, currentView, setView }: HeaderProps) {
+export default function Header({ searchQuery, onSearchChange, currentView, setView, searchResults = [], onSelectPlayer }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const burgerRef = React.useRef<HTMLButtonElement | null>(null);
   const firstNavRef = React.useRef<HTMLButtonElement | null>(null);
@@ -59,7 +60,7 @@ export default function Header({ searchQuery, onSearch, currentView, setView }: 
   };
 
   return (
-    <header className="fixed top-0 w-full z-[100] bg-black/80 backdrop-blur-2xl border-b border-red-900/20 h-20">
+    <header className="fixed top-0 w-full z-[100] bg-black/100 backdrop-blur-2xl border-b border-red-900/20 h-20">
       {/* Barra Superior - Sempre no TOPO de tudo */}
       <div className="max-w-7xl mx-auto px-4 md:px-8 h-full flex items-center justify-between relative z-[130]">
         
@@ -95,6 +96,42 @@ export default function Header({ searchQuery, onSearch, currentView, setView }: 
             </button>
           ))}
         </nav>
+
+        {/* Search Bar - Desktop */}
+        <div 
+          className="hidden lg:block relative group mx-6"
+        >
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="LOCALIZAR..."
+            className="bg-black/50 border border-red-900/30 rounded-full px-4 py-2 text-[10px] text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/50 transition-all tech-font w-40 focus:w-64 uppercase"
+          />
+          
+          {/* Search Results Dropdown */}
+          {searchQuery.length > 2 && searchResults.length > 0 && (
+            <div className="absolute top-full left-0 w-64 bg-[#0a0a0a] border border-red-900/30 rounded-xl mt-2 shadow-2xl overflow-hidden z-50 flex flex-col">
+              {searchResults.map((player) => (
+                <button
+                  key={player.id_discord}
+                  onClick={() => onSelectPlayer?.(player)}
+                  className="flex items-center gap-3 p-3 hover:bg-white/5 transition-colors text-left border-b border-white/5 last:border-0"
+                >
+                  <img 
+                    src={player.avatar_url} 
+                    alt={player.nome}
+                    className="w-8 h-8 rounded-full bg-black object-cover"
+                  />
+                  <div>
+                    <div className="text-white text-xs font-bold">{player.nome}</div>
+                    <div className="text-red-500 text-[10px] font-mono">Rating: {player.rating}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Ações */}
         <div className="flex items-center gap-4">
@@ -148,6 +185,19 @@ export default function Header({ searchQuery, onSearch, currentView, setView }: 
               >
                 <span className="text-white text-xl">✕</span>
               </button>
+            </div>
+
+            {/* Search - Mobile */}
+            <div 
+              className="p-6 pb-0"
+            >
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                placeholder="LOCALIZAR..."
+                className="w-full bg-[#111] border border-red-900/30 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-red-500 transition-all tech-font uppercase"
+              />
             </div>
 
             {/* Navigation */}

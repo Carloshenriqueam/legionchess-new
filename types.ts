@@ -54,3 +54,13 @@ export interface Tournament {
 
 export type GameMode = 'blitz' | 'rapid' | 'bullet' | 'classic';
 export type ViewState = 'home' | 'rankings' | 'regulations' | 'tournaments';
+
+export interface SearchPlayer {
+  id_discord: string;
+  nome: string;
+  avatar_url: string;
+  rating: number;
+  partidas_jogadas: number;
+  win_rate: number;
+}
+

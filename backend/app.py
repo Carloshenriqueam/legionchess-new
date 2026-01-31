@@ -6,7 +6,7 @@ import json
 import os
 import sys
 from datetime import datetime
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request, send_file, redirect
 from flask_cors import CORS
 from pathlib import Path
 import requests
@@ -351,7 +351,7 @@ def get_historico(discord_id):
                     player2_rating_after,
                     played_at
                 FROM game_history
-                WHERE (player1_id = ? OR player2_id = ?) AND mode = ?
+                WHERE (player1_id = ? OR player2_id = ?) AND LOWER(mode) = LOWER(?)
                 ORDER BY played_at DESC
                 LIMIT 50
             ''', (discord_id, discord_id, modo_filter))
@@ -552,11 +552,11 @@ def get_swiss_tournaments():
                 t.id,
                 t.name,
                 t.description,
-                t.mode,
+                'swiss' as mode,
                 t.time_control,
                 t.finished_at,
                 p.discord_username as winner_name
-            FROM tournaments t
+            FROM swiss_tournaments t
             LEFT JOIN players p ON t.winner_id = p.discord_id
             WHERE t.status = 'finished'
             ORDER BY t.finished_at DESC
