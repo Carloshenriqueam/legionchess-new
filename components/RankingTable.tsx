@@ -19,6 +19,16 @@ export default function RankingTable({ players, mode, onPlayerClick }: RankingTa
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentPlayers = players.slice(startIndex, startIndex + itemsPerPage);
 
+  const getLeagueInfo = (rating: number) => {
+    if (rating >= 2400) return { name: 'LEGION', color: 'text-red-600', bg: 'bg-red-600/10', border: 'border-red-600/30' };
+    if (rating >= 2000) return { name: 'MASTER', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/30' };
+    if (rating >= 1800) return { name: 'DIAMOND', color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/30' };
+    if (rating >= 1600) return { name: 'PLATINUM', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' };
+    if (rating >= 1400) return { name: 'GOLD', color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/30' };
+    if (rating >= 1200) return { name: 'SILVER', color: 'text-gray-300', bg: 'bg-gray-500/10', border: 'border-gray-500/30' };
+    return { name: 'BRONZE', color: 'text-orange-700', bg: 'bg-orange-900/10', border: 'border-orange-900/30' };
+  };
+
   return (
     <div className="rounded-3xl border border-red-900/10 bg-[#0a0a0a]/80 backdrop-blur-sm shadow-2xl relative flex flex-col">
       <div className="overflow-x-auto">
@@ -42,6 +52,7 @@ export default function RankingTable({ players, mode, onPlayerClick }: RankingTa
             const vitorias = Number(stats.vitorias || 0);
             const wrValue = partidas > 0 ? (vitorias / partidas) * 100 : 0;
             const wr = wrValue.toFixed(1);
+            const league = getLeagueInfo(stats.rating || 0);
             
             // Determine rank styling
             let rankBadge;
@@ -123,15 +134,20 @@ export default function RankingTable({ players, mode, onPlayerClick }: RankingTa
                   </div>
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <span className={`tech-font font-black text-lg ${
-                    player.rank === 1 ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-600' :
-                    player.rank === 2 ? 'text-transparent bg-clip-text bg-gradient-to-r from-gray-200 to-gray-500' :
-                    player.rank === 3 ? 'text-transparent bg-clip-text bg-gradient-to-r from-orange-300 to-orange-600' :
-                    stats.rating >= 2000 ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-red-600' : 
-                    stats.rating >= 1500 ? 'text-red-500' : 'text-gray-400'
-                  }`}>
-                    {stats.rating ?? 0}
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className={`tech-font font-black text-lg ${
+                      player.rank === 1 ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-600' :
+                      player.rank === 2 ? 'text-transparent bg-clip-text bg-gradient-to-r from-gray-200 to-gray-500' :
+                      player.rank === 3 ? 'text-transparent bg-clip-text bg-gradient-to-r from-orange-300 to-orange-600' :
+                      stats.rating >= 2000 ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-red-600' : 
+                      stats.rating >= 1500 ? 'text-red-500' : 'text-gray-400'
+                    }`}>
+                      {stats.rating ?? 0}
+                    </span>
+                    <span className={`text-[8px] tech-font font-bold uppercase px-1.5 py-0.5 rounded border ${league.color} ${league.bg} ${league.border}`}>
+                      {league.name}
+                    </span>
+                  </div>
                 </td>
                 <td className="px-6 py-4 text-green-500/80 tech-font text-sm text-center font-bold">{stats.vitorias ?? 0}</td>
                 <td className="px-6 py-4 text-yellow-500/80 tech-font text-sm text-center font-bold hidden md:table-cell">{stats.empates ?? 0}</td>

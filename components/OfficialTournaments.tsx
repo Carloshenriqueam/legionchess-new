@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import TournamentBracket from './TournamentBracket';
 
 interface Participant {
   name: string;
@@ -24,6 +25,81 @@ interface Tournament {
 
 export default function OfficialTournaments() {
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
+  const [bracketTournament, setBracketTournament] = useState<Tournament | null>(null);
+
+  // ============================================
+  // 🎯 CONFIGURE SEU BRACKET AQUI
+  // ============================================
+  // Coloque a configuração do bracket aqui:
+  const bracketConfig = {
+    rounds: [
+      // RODADA 1 - Primeira Rodada
+      [
+        {
+          id: 'r1-m0',
+          player1: { name: 'carloshenri', rating: 1841, avatar: 'https://cdn.discordapp.com/embed/avatars/0.png' },
+          player2: { name: 'carloshenriam3', rating: 1756, avatar: 'https://cdn.discordapp.com/embed/avatars/1.png' },
+          status: 'finished' as const,
+          winner: 'carloshenri',
+          score: '1-0',
+          round: 1
+        },
+        {
+          id: 'r1-m1',
+          player1: { name: 'GrandMaster_X', rating: 1725, avatar: 'https://cdn.discordapp.com/embed/avatars/2.png' },
+          player2: { name: 'BlitzKing', rating: 1698, avatar: 'https://cdn.discordapp.com/embed/avatars/3.png' },
+          status: 'finished' as const,
+          winner: 'GrandMaster_X',
+          score: '1-0',
+          round: 1
+        },
+        {
+          id: 'r1-m2',
+          player1: { name: 'LightningBolt', rating: 1654, avatar: 'https://cdn.discordapp.com/embed/avatars/4.png' },
+          player2: { name: 'ProPlayer', rating: 1890, avatar: 'https://cdn.discordapp.com/embed/avatars/0.png' },
+          status: 'playing' as const,
+          round: 1
+        },
+          {
+          id: 'r1-m3',
+          player1: { name: 'LightningBolt', rating: 1654, avatar: 'https://cdn.discordapp.com/embed/avatars/4.png' },
+          player2: { name: 'ProPlayer', rating: 1890, avatar: 'https://cdn.discordapp.com/embed/avatars/0.png', isThirdPlace: true },
+          status: 'playing' as const,
+          round: 1
+        }
+      ],
+      // RODADA 2 - Semifinal
+      [
+        {
+          id: 'r2-m0',
+          player1: { name: 'carloshenri', rating: 1841, avatar: 'https://cdn.discordapp.com/embed/avatars/0.png' ,isChampion: true  },
+          player2: { name: 'GrandMaster_X', rating: 1725, avatar: 'https://cdn.discordapp.com/embed/avatars/2.png' ,isSecondPlace: true},
+          status: 'pending' as const,
+          round: 2
+        },
+        {
+          id: 'r2-m0',
+          player1: { name: 'carloshenri', rating: 1841, avatar: 'https://cdn.discordapp.com/embed/avatars/0.png' },
+          player2: { name: 'GrandMaster_X', rating: 1725, avatar: 'https://cdn.discordapp.com/embed/avatars/2.png' },
+          status: 'pending' as const,
+          round: 2
+          
+        }
+      ],
+      
+      // RODADA 3 - Final
+      [
+        {
+          id: 'r3-m0',
+          player1: null,
+          player2: null,
+          status: 'pending' as const,
+          round: 3
+        },
+      ]
+    ]
+  };
+  // ============================================
 
   const tournaments: Tournament[] = [
     {
@@ -241,7 +317,15 @@ export default function OfficialTournaments() {
               Regras
             </button>
 
-            {tournament.status === 'upcoming' ? (
+            {tournament.status === 'ongoing' && (
+              <button 
+                onClick={() => setBracketTournament(tournament)}
+                className="py-3 rounded-xl bg-gradient-to-r from-green-600 to-green-800 hover:from-green-500 hover:to-green-700 text-white text-[10px] font-bold uppercase tracking-wider transition-all shadow-lg shadow-green-900/20 hover:shadow-green-600/40 border border-green-500/20 hover:scale-[1.02] active:scale-[0.98] group/btn"
+              >
+                🎯 Assistir <span className="ml-2 group-hover/btn:translate-x-1 transition-transform">→</span>
+              </button>
+            )}
+            {tournament.status === 'upcoming' && (
               <a 
                 href="https://discord.com/invite/n7kjQmfZGk"
                 target="_blank"
@@ -250,9 +334,10 @@ export default function OfficialTournaments() {
               >
                 Inscrever-se <span className="ml-2 group-hover/btn:translate-x-1 transition-transform">→</span>
               </a>
-            ) : (
+            )}
+            {tournament.status === 'finished' && (
               <button className="py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white text-[10px] font-bold uppercase tracking-wider transition-all border border-white/10 hover:border-white/30">
-                {tournament.status === 'ongoing' ? 'Assistir' : 'Resultados'}
+                Resultados
               </button>
             )}
           </div>
@@ -307,6 +392,15 @@ export default function OfficialTournaments() {
           {finished.map(renderTournamentCard)}
         </div>
       </section>
+
+      {/* Tournament Bracket Modal */}
+      {bracketTournament && (
+        <TournamentBracket 
+          tournament={bracketTournament}
+          bracketConfig={bracketConfig}
+          onClose={() => setBracketTournament(null)}
+        />
+      )}
 
       {/* Rules Modal */}
       {selectedTournament && (

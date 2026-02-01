@@ -332,7 +332,10 @@ def get_historico(discord_id):
         
         # Permite filtrar por modo via query param '?modo=blitz|rapid|bullet|classic'
         modo_filter = request.args.get('modo')
-        if modo_filter:
+        print(f'[DEBUG] Buscando histórico para {discord_id}, modo: {modo_filter}')
+        
+        if modo_filter and modo_filter.lower() != 'todos':
+            print(f'[DEBUG] Filtrando por modo: {modo_filter}')
             cursor.execute('''
                 SELECT 
                     id,
@@ -351,12 +354,13 @@ def get_historico(discord_id):
                     player2_rating_after,
                     played_at
                 FROM game_history
-                WHERE (player1_id = ? OR player2_id = ?) AND LOWER(mode) = LOWER(?)
+                WHERE (player1_id = ? OR player2_id = ?) AND mode = ?
                 ORDER BY played_at DESC
                 LIMIT 50
             ''', (discord_id, discord_id, modo_filter))
         else:
             # Buscar partidas do jogador (como player1 ou player2)
+            print(f'[DEBUG] Buscando todas as partidas')
             cursor.execute('''
                 SELECT 
                     id,
@@ -381,6 +385,7 @@ def get_historico(discord_id):
             ''', (discord_id, discord_id))
         
         rows = cursor.fetchall()
+        print(f'[DEBUG] Total de partidas encontradas: {len(rows)}')
         conn.close()
         
         partidas = []
@@ -432,6 +437,7 @@ def get_historico(discord_id):
                 'data': row_dict['played_at']
             })
         
+        print(f'[DEBUG] Retornando {len(partidas)} partidas processadas')
         return jsonify({
             'discord_id': discord_id,
             'total_partidas': len(partidas),
@@ -439,7 +445,9 @@ def get_historico(discord_id):
         })
     
     except Exception as e:
-        print(f'Erro ao buscar histórico: {e}')
+        print(f'[ERROR] Erro ao buscar histórico: {e}')
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/tournaments/in-progress', methods=['GET'])
@@ -611,6 +619,39 @@ def static_files(filename):
 def health():
     """Health check"""
     return jsonify({'status': 'ok', 'database': DB_PATH}), 200
+
+@app.route('/api/debug/db-info', methods=['GET'])
+def debug_db_info():
+    """Debug endpoint - mostra informações do banco de dados"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Contar dados em cada tabela
+        cursor.execute("SELECT COUNT(*) as count FROM players")
+        player_count = cursor.fetchone()['count']
+        
+        cursor.execute("SELECT COUNT(*) as count FROM game_history")
+        history_count = cursor.fetchone()['count']
+        
+        # Listar alguns jogadores
+        cursor.execute("SELECT discord_id, discord_username FROM players LIMIT 5")
+        players = [dict(row) for row in cursor.fetchall()]
+        
+        # Listar algumas partidas
+        cursor.execute("SELECT player1_id, player2_id, mode, played_at FROM game_history LIMIT 5")
+        games = [dict(row) for row in cursor.fetchall()]
+        
+        conn.close()
+        
+        return jsonify({
+            'players_count': player_count,
+            'games_count': history_count,
+            'sample_players': players,
+            'sample_games': games
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/avatar/<discord_id>', methods=['GET'])
 def get_avatar(discord_id):

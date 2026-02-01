@@ -13,8 +13,10 @@ interface PlayerModalProps {
 }
 
 export default function PlayerModal({ player, activeMode, onClose }: PlayerModalProps) {
-  const [currentMode, setCurrentMode] = useState<GameMode>(activeMode);
+  const [currentMode, setCurrentMode] = useState<GameMode | 'todos'>(activeMode);
   const [history, setHistory] = useState<Match[]>([]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const itemsPerPage = 5;
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [fullStats, setFullStats] = useState(player.estatisticas);
   const [aiReport, setAiReport] = useState<string | null>(null);
@@ -22,7 +24,21 @@ export default function PlayerModal({ player, activeMode, onClose }: PlayerModal
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isClosing, setIsClosing] = useState(false);
 
-  const stats = fullStats[currentMode] || { rating: 0, vitorias: 0, derrotas: 0, empates: 0, partidas_jogadas: 0 };
+  // Calcula stats agregados se o modo for 'todos', senão pega do modo específico
+  const getDisplayStats = () => {
+    if (currentMode === 'todos') {
+        let v = 0, d = 0, e = 0, p = 0;
+        Object.values(fullStats).forEach((s: any) => {
+            if(s) { v += (s.vitorias || 0); d += (s.derrotas || 0); e += (s.empates || 0); p += (s.partidas_jogadas || 0); }
+        });
+        // Rating 0 para 'todos' pois não faz sentido somar ratings
+        return { rating: 0, vitorias: v, derrotas: d, empates: e, partidas_jogadas: p };
+    }
+    return fullStats[currentMode as GameMode] || { rating: 0, vitorias: 0, derrotas: 0, empates: 0, partidas_jogadas: 0 };
+  };
+
+  const stats = getDisplayStats();
+  const totalPages = Math.ceil(history.length / itemsPerPage);
 
   const handleClose = () => {
     setIsClosing(true);
@@ -69,10 +85,16 @@ export default function PlayerModal({ player, activeMode, onClose }: PlayerModal
     const fetchHistory = async () => {
       setIsLoadingData(true);
       try {
-        const histRes = await fetch(`${API_URL}/historico/${player.id_discord}?modo=${currentMode}`);
+        // Adiciona timestamp para evitar cache do navegador
+        const histRes = await fetch(`${API_URL}/historico/${player.id_discord}?modo=${currentMode}&t=${new Date().getTime()}`, {
+            cache: 'no-store'
+        });
         if (!histRes.ok) throw new Error();
         const histData = await histRes.json();
-        setHistory(histData.partidas || histData || []);
+        console.log("Dados de histórico recebidos:", histData);
+        const partidas = Array.isArray(histData.partidas) ? histData.partidas : Array.isArray(histData) ? histData : [];
+        setHistory(partidas);
+        setHistoryPage(1);
       } catch (e) {
         console.error("Erro ao buscar histórico:", e);
         setHistory([]);
@@ -159,7 +181,7 @@ export default function PlayerModal({ player, activeMode, onClose }: PlayerModal
 
             {/* Mode Tabs */}
             <div className="flex justify-center gap-2 mb-6">
-              {(['blitz', 'rapid', 'bullet', 'classic'] as GameMode[]).map((mode) => (
+              {(['todos', 'blitz', 'rapid', 'bullet', 'classic'] as const).map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setCurrentMode(mode)}
@@ -176,7 +198,7 @@ export default function PlayerModal({ player, activeMode, onClose }: PlayerModal
 
             {/* Grid de Stats Primários - Agora com 2 linhas */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-               <StatCard label="Rating" value={stats.rating.toString()} color="text-white" />
+               <StatCard label="Rating" value={stats.rating > 0 ? stats.rating.toString() : "---"} color="text-white" />
                <StatCard label="Win Rate" value={`${stats.partidas_jogadas > 0 ? ((stats.vitorias/stats.partidas_jogadas)*100).toFixed(1) : 0}%`} color="text-red-500" />
                <StatCard label="Matches" value={stats.partidas_jogadas.toString()} color="text-gray-500" />
                <StatCard label="Vitórias" value={stats.vitorias.toString()} color="text-green-500" />
@@ -251,15 +273,28 @@ export default function PlayerModal({ player, activeMode, onClose }: PlayerModal
                 Combat Achievements
               </h3>
               <div className="flex flex-wrap gap-2">
-                {achievements.length > 0 ? achievements.map((ach, i) => (
+                {achievements.length > 0 ? achievements.map((ach, i) => {
+                  const name = ach.achievement_name || '';
+                  const isVerified = /verificado|verified/i.test(name);
+                  const isRival = /rival/i.test(name);
+                  const isChampionAch = /champion|campe(o|ã)o|campeonato|league champion/i.test(name);
+                  return (
                   <div key={i} className="bg-red-600/5 border border-red-900/10 px-5 py-3 rounded-2xl flex items-center gap-4 hover:bg-red-600/10 transition-all cursor-help" title={ach.description}>
-                    <span className="text-xl filter drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">🏆</span>
+                    {isVerified ? (
+                      <img src="/verified-badge.png" alt="Membro Verificado" className="w-8 h-8 rounded-md" />
+                    ) : isChampionAch ? (
+                      <img src="/league_champion.0017401b.png" alt="Campeão da Semana" className="w-8 h-8 rounded-md" />
+                    ) : isRival ? (
+                      <img src="/rival.png" alt="Rival" className="w-8 h-8 rounded-md" />
+                    ) : (
+                      <span className="text-xl filter drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">🏆</span>
+                    )}
                     <div>
                       <span className="text-[10px] tech-font text-white uppercase font-bold block">{ach.achievement_name}</span>
                       <span className="text-[8px] tech-font text-red-900 uppercase">{new Date(ach.unlocked_at).toLocaleDateString()}</span>
                     </div>
                   </div>
-                )) : (
+                )}) : (
                   <p className="text-[10px] tech-font text-gray-700 italic pl-2">Nenhum registro de glória encontrado.</p>
                 )}
               </div>
@@ -276,7 +311,8 @@ export default function PlayerModal({ player, activeMode, onClose }: PlayerModal
                     <div className="w-6 h-6 border-2 border-red-600/20 border-t-red-600 rounded-full animate-spin"></div>
                   </div>
                 ) : history.length > 0 ? (
-                  history.map((match, i) => (
+                  <>
+                    {history.slice((historyPage - 1) * itemsPerPage, historyPage * itemsPerPage).map((match, i) => (
                     <div 
                       key={i} 
                       className="flex items-center justify-between p-5 bg-[#0c0c0c] rounded-3xl border border-white/5 hover:border-red-600/30 transition-all cursor-pointer group hover:translate-x-1"
@@ -302,7 +338,32 @@ export default function PlayerModal({ player, activeMode, onClose }: PlayerModal
                         </div>
                       </div>
                     </div>
-                  ))
+                  ))}
+                  
+                  {totalPages > 1 && (
+                    <div className="flex justify-between items-center pt-4 border-t border-white/5 mt-4">
+                      <button 
+                        onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                        disabled={historyPage === 1}
+                        className="px-4 py-2 rounded-lg bg-[#111] hover:bg-[#1a1a1a] text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all tech-font text-[9px] font-bold uppercase tracking-wider border border-white/5"
+                      >
+                        ← Anterior
+                      </button>
+                      
+                      <span className="text-[9px] tech-font text-gray-600 font-bold uppercase tracking-widest">
+                        <span className="text-white">{historyPage}</span> / {totalPages}
+                      </span>
+
+                      <button 
+                        onClick={() => setHistoryPage(p => Math.min(totalPages, p + 1))}
+                        disabled={historyPage === totalPages}
+                        className="px-4 py-2 rounded-lg bg-[#111] hover:bg-[#1a1a1a] text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all tech-font text-[9px] font-bold uppercase tracking-wider border border-white/5"
+                      >
+                        Próxima →
+                      </button>
+                    </div>
+                  )}
+                  </>
                 ) : (
                   <div className="bg-yellow-600/10 border border-yellow-600/30 p-4 rounded-lg text-center">
                     <p className="text-[10px] tech-font text-yellow-600 uppercase">Nenhuma partida registrada neste modo</p>
