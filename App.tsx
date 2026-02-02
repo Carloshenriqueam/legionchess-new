@@ -298,6 +298,7 @@ const App: React.FC = () => {
           player={selectedPlayer} 
           activeMode={activeMode}
           onClose={() => setSelectedPlayer(null)} 
+          apiUrl={API_URL}
         />
       )}
     </div>

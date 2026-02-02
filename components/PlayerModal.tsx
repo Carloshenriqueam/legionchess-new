@@ -4,15 +4,16 @@ import { Player, GameMode, Match, Achievement } from '../types.ts';
 import { GoogleGenAI } from "@google/genai";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-const API_URL = 'http://localhost:5000/api';
+
 
 interface PlayerModalProps {
   player: Player;
   activeMode: GameMode;
   onClose: () => void;
+  apiUrl: string;
 }
 
-export default function PlayerModal({ player, activeMode, onClose }: PlayerModalProps) {
+export default function PlayerModal({ player, activeMode, onClose, apiUrl }: PlayerModalProps) {
   const [currentMode, setCurrentMode] = useState<GameMode | 'todos'>(activeMode);
   const [history, setHistory] = useState<Match[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
@@ -58,8 +59,8 @@ export default function PlayerModal({ player, activeMode, onClose }: PlayerModal
     const fetchGlobalData = async () => {
       try {
         const [achRes, detailsRes] = await Promise.all([
-          fetch(`${API_URL}/achievements/${player.id_discord}`),
-          fetch(`${API_URL}/jogador/${player.id_discord}`)
+          fetch(`${apiUrl}/achievements/${player.id_discord}`),
+          fetch(`${apiUrl}/jogador/${player.id_discord}`)
         ]);
         
         if (achRes.ok) {
@@ -86,7 +87,7 @@ export default function PlayerModal({ player, activeMode, onClose }: PlayerModal
       setIsLoadingData(true);
       try {
         // Adiciona timestamp para evitar cache do navegador
-        const histRes = await fetch(`${API_URL}/historico/${player.id_discord}?modo=${currentMode}&t=${new Date().getTime()}`, {
+        const histRes = await fetch(`${apiUrl}/historico/${player.id_discord}?modo=${currentMode}&t=${new Date().getTime()}`, {
             cache: 'no-store'
         });
         if (!histRes.ok) throw new Error();

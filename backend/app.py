@@ -11,9 +11,16 @@ from flask_cors import CORS
 from pathlib import Path
 import requests
 from io import BytesIO
+import threading
 
 # Configurar o caminho para importar o database.py do bot
-BOT_PATH = r"C:\Users\carlu\legion-chess-bot"
+# Tenta usar o caminho local (Windows), se não existir, usa o diretório atual (Discloud/Linux)
+local_bot_path = r"C:\Users\carlu\legion-chess-bot"
+if os.path.exists(local_bot_path):
+    BOT_PATH = local_bot_path
+else:
+    BOT_PATH = os.getcwd() # Na Discloud, o bot roda na raiz
+
 sys.path.insert(0, BOT_PATH)
 
 app = Flask(__name__)
@@ -587,12 +594,15 @@ def get_swiss_tournaments():
 
 @app.route('/', methods=['GET'])
 def index():
-    """Serve a página inicial"""
-    try:
-        frontend_path = Path(__file__).parent.parent / 'index.html'
-        return send_file(frontend_path)
-    except Exception as e:
-        return f"Erro ao carregar página: {e}", 500
+    """
+    Rota raiz da API.
+    Como o frontend está na Vercel, esta rota serve apenas para verificar se a API está online.
+    """
+    return jsonify({
+        "status": "online",
+        "message": "Legion Chess API operante",
+        "documentation": "Consulte /api/health para status do banco de dados"
+    })
 
 @app.route('/debug', methods=['GET'])
 def debug_page():
@@ -801,6 +811,11 @@ def not_found(error):
 def server_error(error):
     return jsonify({'error': 'Erro no servidor'}), 500
 
+def run_api():
+    """Função para rodar a API em uma thread separada junto com o bot"""
+    port = int(os.environ.get("PORT", 8080)) # Discloud usa a porta 8080 ou a env PORT
+    app.run(debug=False, host='0.0.0.0', port=port)
+
 if __name__ == '__main__':
     # Verificar se banco existe, se não, criar
     if not os.path.exists(DB_PATH):
@@ -825,4 +840,4 @@ if __name__ == '__main__':
     print(f'   GET /api/stats-gerais - Estatisticas gerais')
     print(f'   GET /api/health - Health check')
     
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    run_api()
